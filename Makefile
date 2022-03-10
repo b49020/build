@@ -6,6 +6,7 @@ CCACHE ?= $(shell which ccache) # Don't remove this comment (space is needed)
 ROOT				?= $(PWD)
 OUT_PATH			?= $(ROOT)/out
 
+BINARIES_PATH			?= $(ROOT)/out/bin
 BUILD_PATH			?= $(ROOT)/build
 FUN_SIM_PATH			?= $(ROOT)/fun_sim
 GOOGLETEST_PATH			?= $(ROOT)/googletest
@@ -13,6 +14,8 @@ GOOGLETEST_OUT			?= $(GOOGLETEST_PATH)/build
 GOOGLETEST_LIB_DIR		?= $(GOOGLETEST_OUT)/lib
 GOOGLETEST_LIB			?= $(GOOGLETEST_LIB_DIR)/libgtest.a
 GOOGLETEST_INCLUDE_DIR		?= $(GOOGLETEST_PATH)/googletest/include
+LINUX_PATH			?= $(ROOT)/linux
+MODULE_OUTPUT			?= $(OUT_PATH)/kernel_modules
 NTL_PATH			?= $(ROOT)/ntl
 
 DEBUG				?= n
@@ -21,6 +24,12 @@ CCACHE_DIR			?= $(HOME)/.ccache
 # Configuration
 CFG_ENABLE_NTL_TESTS		?= n
 CFG_ENABLE_GTESTS		?= y
+
+# Use x86 gcc by default
+CROSS_COMPILE_PREFIX		?=
+ifeq ($(ARCH),arm64)
+	CROSS_COMPILE_PREFIX		:= aarch64-linux-gnu-
+endif
 
 # Binaries and general files
 LIBNTL_A			?= $(OUT_PATH)/ntl/lib/libntl.a
@@ -100,6 +109,56 @@ fun-sim: ntl
 
 fun-sim-clean:
 	cd $(FUN_SIM_PATH) && git clean -xdf
+
+################################################################################
+# Linux kernel
+################################################################################
+ifeq ($(ARCH),arm64)
+LINUX_DEFCONFIG_COMMON_ARCH := arm64
+LINUX_DEFCONFIG_COMMON_FILES := \
+	$(LINUX_PATH)/arch/arm64/configs/defconfig
+else
+LINUX_DEFCONFIG_COMMON_ARCH := x86
+LINUX_DEFCONFIG_COMMON_FILES := \
+	$(LINUX_PATH)/arch/x86/configs/x86_64_defconfig
+endif
+
+LINUX_COMMON_FLAGS ?= LOCALVERSION=
+LINUX_CLEAN_COMMON_FLAGS += ARCH=$(LINUX_DEFCONFIG_COMMON_ARCH)
+
+linux: linux-common
+	mkdir -p $(BINARIES_PATH)
+	#ln -sf $(LINUX_PATH)/arch/arm64/boot/Image $(BINARIES_PATH)
+
+.PHONY: linux-common
+linux-common: linux-defconfig
+	$(MAKE) -C $(LINUX_PATH) CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" $(LINUX_COMMON_FLAGS)
+
+$(LINUX_PATH)/.config: $(LINUX_DEFCONFIG_COMMON_FILES)
+	cd $(LINUX_PATH) && \
+		ARCH=$(LINUX_DEFCONFIG_COMMON_ARCH) \
+		CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" \
+		scripts/kconfig/merge_config.sh $(LINUX_DEFCONFIG_COMMON_FILES)
+
+linux-defconfig: $(LINUX_PATH)/.config
+
+linux-modules: linux
+	$(MAKE) -C $(LINUX_PATH) CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" $(LINUX_COMMON_FLAGS) modules
+	$(MAKE) -C $(LINUX_PATH) $(LINUX_COMMON_FLAGS) INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$(MODULE_OUTPUT) modules_install
+
+linux-defconfig-clean: linux-defconfig-clean-common
+
+.PHONY: linux-defconfig-clean-common
+linux-defconfig-clean-common:
+	rm -f $(LINUX_PATH)/.config
+
+.PHONY: linux-clean-common
+linux-clean-common: linux-defconfig-clean
+	$(MAKE) -C $(LINUX_PATH) $(LINUX_CLEAN_COMMON_FLAGS) clean
+
+.PHONY: linux-cleaner-common
+linux-cleaner-common: linux-defconfig-clean
+	$(MAKE) -C $(LINUX_PATH) $(LINUX_CLEANER_COMMON_FLAGS) distclean
 
 #################################################################################
 # Helper targets
