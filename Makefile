@@ -17,6 +17,7 @@ GOOGLETEST_INCLUDE_DIR		?= $(GOOGLETEST_PATH)/googletest/include
 LINUX_PATH			?= $(ROOT)/linux
 MODULE_OUTPUT			?= $(OUT_PATH)/kernel_modules
 NTL_PATH			?= $(ROOT)/ntl
+QEMU_PATH			?= $(ROOT)/qemu
 
 DEBUG				?= n
 CCACHE_DIR			?= $(HOME)/.ccache
@@ -161,6 +162,51 @@ linux-cleaner-common: linux-defconfig-clean
 	$(MAKE) -C $(LINUX_PATH) $(LINUX_CLEANER_COMMON_FLAGS) distclean
 
 #################################################################################
+# QEMU
+#################################################################################
+QEMU_TARGET ?= x86_64-softmmu
+ifeq ($(ARCH),arm64)
+	QEMU_TARGET := aarch64-softmmu
+endif
+
+qemu-configure:
+	cd $(QEMU_PATH) && \
+	./configure --target-list=$(QEMU_TARGET) \
+		--cc="$(CCACHE)gcc" \
+		--extra-cflags="-Wno-error" \
+		--enable-virtfs
+
+# Helper target to run configure if config-host.mak doesn't exist or has been
+# updated. This avoid re-run configure every time we run the "qemu" target.
+$(QEMU_PATH)/config-host.mak:
+	$(MAKE) qemu-configure
+
+# Need a PHONY target here, otherwise it mixes it with the folder name "qemu".
+.PHONY: qemu
+qemu: $(QEMU_PATH)/config-host.mak
+	$(MAKE) -C $(QEMU_PATH)
+
+qemu-create-env-image:
+	@if [ ! -f $(QEMU_ENV) ]; then \
+		echo "Creating envstore image ..."; \
+		qemu-img create -f raw $(QEMU_ENV) 64M; \
+	fi
+
+qemu-help:
+	@echo "\n================================================================================"
+	@echo "= QEMU                                                                         ="
+	@echo "================================================================================"
+	@echo "Mount host filesystem in Buildroot"
+	@echo "  Run this at the shell in Buildroot:"
+	@echo "    mkdir /host && mount -t 9p -o trans=virtio host /host"
+	@echo "  Once done, you can access the host PC's files"
+
+.PHONY: qemu-clean
+qemu-clean:
+	cd $(QEMU_PATH) && git clean -xdf && \
+		git submodule foreach git clean -xdf
+
+#################################################################################
 # Helper targets
 #################################################################################
 $(OUT_PATH):
@@ -174,17 +220,51 @@ $(OUT_PATH):
 ctxtAdd: fun-sim
 	cd $(FUN_SIM_PATH) && ./build/examples/ctxtAdd
 
-#.PHONY: run-netboot
-#run-netboot:
-#	if [ ! -r $(OUT_PATH)/uEnv.txt ]; then \
-#		cp $(BUILD_PATH)/uEnv-example.txt $(OUT_PATH)/uEnv.txt; \
-#	fi
-#	cd $(OUT_PATH) && \
-#	$(QEMU_BIN) \
-#		$(QEMU_ARGS) \
-#		$(QEMU_BIOS) \
-#		$(QEMU_EXTRA_ARGS)
-#
+QEMU_BIN		?= $(QEMU_PATH)/build/qemu-system-x86_64
+QEMU_CONSOLE		?= -append "console=ttyS0"
+QEMU_KERNEL		?= -kernel $(LINUX_PATH)/arch/x86_64/boot/bzImage
+QEMU_ARGS		?= -nographic
+QEMU_ENV		?= $(OUT_PATH)/envstore.img
+
+ifeq ($(ARCH),arm64)
+QEMU_BIN		:= $(QEMU_PATH)/build/qemu-system-aarch64
+QEMU_CONSOLE		:= -append "console=ttyAMA0"
+QEMU_KERNEL		:= -kernel $(LINUX_PATH)/arch/arm64/boot/Image.gz
+QEMU_ARGS		+= -smp 1 \
+			   -machine virt \
+			   -cpu cortex-a57 \
+			   -d unimp \
+			   -m 512 \
+			   -no-acpi \
+			   -netdev user,id=vmnic,tftp=$(ROOT)/out,bootfile=uEnv.txt \
+			   -device virtio-net-device,netdev=vmnic
+QEMU_VIRTFS_HOST_DIR	?= $(CURDIR)
+
+ifeq ($(QEMU_VIRTFS_ENABLE),y)
+QEMU_EXTRA_ARGS +=\
+	-fsdev local,id=fsdev0,path=$(QEMU_VIRTFS_HOST_DIR),security_model=none \
+	-device virtio-9p-device,fsdev=fsdev0,mount_tag=host
+endif
+
+ifeq ($(ENVSTORE),y)
+QEMU_EXTRA_ARGS +=\
+	-drive if=pflash,format=raw,index=1,file=envstore.img
+endif
+endif # ARCH=arm64
+
+# Enable GDB debugging
+ifeq ($(GDB),y)
+QEMU_EXTRA_ARGS	+= -s -S
+endif
+
+.PHONY: run-kernel
+run-kernel:
+	cd $(OUT_PATH) && \
+	$(QEMU_BIN) \
+		$(QEMU_ARGS) \
+		$(QEMU_KERNEL) \
+                $(QEMU_CONSOLE) \
+		$(QEMU_EXTRA_ARGS)
 
 
 ################################################################################

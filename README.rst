@@ -13,6 +13,10 @@ Prerequisites
 This setup has dependencies to various packages. The list of packages that we've
 been able to identify is as below and needs to be installed on your system:
 
+.. code-block:: bash
+
+    $ sudo apt install libcap-ng-dev libattr1 libattr1-dev
+
 
 Get the source code
 ===================
