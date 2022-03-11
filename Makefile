@@ -50,7 +50,7 @@ endif
 ################################################################################
 # Targets
 ################################################################################
-TARGET_DEPS := build fun-sim ntl
+TARGET_DEPS := build busybox fun-sim ntl linux qemu
 
 ifeq ($(CFG_ENABLE_GTESTS),y)
 TARGET_DEPS += googletest
@@ -201,18 +201,18 @@ linux-modules: linux
 	$(MAKE) -C $(LINUX_PATH) CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" $(LINUX_COMMON_FLAGS) modules
 	$(MAKE) -C $(LINUX_PATH) $(LINUX_COMMON_FLAGS) INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$(MODULE_OUTPUT) modules_install
 
-linux-defconfig-clean: linux-defconfig-clean-common
+linux-defconfig-clean: linux-defconfig-clean
 
-.PHONY: linux-defconfig-clean-common
-linux-defconfig-clean-common:
+.PHONY: linux-defconfig-clean
+linux-defconfig-clean:
 	rm -f $(LINUX_PATH)/.config
 
-.PHONY: linux-clean-common
-linux-clean-common: linux-defconfig-clean
+.PHONY: linux-clean
+linux-clean: linux-defconfig-clean
 	$(MAKE) -C $(LINUX_PATH) $(LINUX_CLEAN_COMMON_FLAGS) clean
 
-.PHONY: linux-cleaner-common
-linux-cleaner-common: linux-defconfig-clean
+.PHONY: linux-cleaner
+linux-cleaner: linux-defconfig-clean
 	$(MAKE) -C $(LINUX_PATH) $(LINUX_CLEANER_COMMON_FLAGS) distclean
 
 #################################################################################
@@ -327,7 +327,7 @@ run-kernel:
 # Clean
 ################################################################################
 .PHONY: clean
-clean: build-clean busybox-clean fun_sim-clean googletest-clean
+clean: busybox-clean fun-sim-clean googletest-clean linux-clean ntl-clean qemu-clean
 
 .PHONY: distclean
 distclean: clean
