@@ -63,6 +63,7 @@ all: $(TARGET_DEPS)
 # subprojects.
 .NOTPARALLEL:
 
+include toolchain.mk
 
 ################################################################################
 # Busybox
