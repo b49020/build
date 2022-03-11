@@ -8,6 +8,7 @@ OUT_PATH			?= $(ROOT)/out
 
 BINARIES_PATH			?= $(ROOT)/out/bin
 BUILD_PATH			?= $(ROOT)/build
+BUSYBOX_PATH			?= $(ROOT)/busybox
 FUN_SIM_PATH			?= $(ROOT)/fun_sim
 GOOGLETEST_PATH			?= $(ROOT)/googletest
 GOOGLETEST_OUT			?= $(GOOGLETEST_PATH)/build
@@ -23,6 +24,7 @@ DEBUG				?= n
 CCACHE_DIR			?= $(HOME)/.ccache
 
 # Configuration
+ARCH				?=
 CFG_ENABLE_NTL_TESTS		?= n
 CFG_ENABLE_GTESTS		?= y
 
@@ -60,6 +62,57 @@ all: $(TARGET_DEPS)
 # build each sub project sequencially but still enable parallel builds in the 
 # subprojects.
 .NOTPARALLEL:
+
+
+################################################################################
+# Busybox
+################################################################################
+BUSYBOX_OUT=$(OUT_PATH)/busybox
+INITRAMFS_OUT=$(OUT_PATH)/initramfs
+INIT=$(INITRAMFS_OUT)/busybox/init
+
+busybox-defconfig:
+	rm -rf $(BUSYBOX_OUT)
+	mkdir -pv $(BUSYBOX_OUT)
+	$(MAKE) -C $(BUSYBOX_PATH) O=$(BUSYBOX_OUT) defconfig
+	sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/g' $(BUSYBOX_OUT)/.config
+
+busybox-build: busybox-defconfig
+	$(MAKE) -C $(BUSYBOX_OUT) \
+		CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" \
+		install
+
+busybox-initramfs: busybox-build
+	rm -rf $(INITRAMFS_OUT)
+	mkdir -p $(INITRAMFS_OUT)/busybox/bin
+	mkdir -p $(INITRAMFS_OUT)/busybox/sbin
+	mkdir -p $(INITRAMFS_OUT)/busybox/etc
+	mkdir -p $(INITRAMFS_OUT)/busybox/proc
+	mkdir -p $(INITRAMFS_OUT)/busybox/sys
+	mkdir -p $(INITRAMFS_OUT)/busybox/usr
+	mkdir -p $(INITRAMFS_OUT)/busybox/usr/bin
+	mkdir -p $(INITRAMFS_OUT)/busybox/usr/sbin
+	cp -av $(BUSYBOX_OUT)/_install/* $(INITRAMFS_OUT)/busybox
+
+busybox-init: busybox-initramfs
+	echo "#!/bin/sh"  > $(INIT)
+	echo "mount -t proc none /proc" >> $(INIT)
+	echo "mount -t sysfs none /sys" >> $(INIT)
+	echo "echo -e \"\\\nBoot took \$$(cut -d' ' -f1 /proc/uptime) seconds\\\n\"" >> $(INIT)
+	echo "exec /bin/sh +m" >> $(INIT)
+	chmod +x $(INIT)
+
+busybox-cpio: busybox-init
+	cd $(INITRAMFS_OUT)/busybox && find . -print0 | \
+		cpio --null -ov --format=newc | \
+		gzip -9 > $(OUT_PATH)/initramfs.cpio.gz
+
+busybox: busybox-cpio
+
+busybox-clean:
+	rm -rf $(BUSYBOX_OUT) $(INITRAMFS_OUT)
+	cd $(BUILD_PATH) && git clean -xdf
+
 
 ################################################################################
 # NTL
@@ -223,6 +276,7 @@ ctxtAdd: fun-sim
 QEMU_BIN		?= $(QEMU_PATH)/build/qemu-system-x86_64
 QEMU_CONSOLE		?= -append "console=ttyS0"
 QEMU_KERNEL		?= -kernel $(LINUX_PATH)/arch/x86_64/boot/bzImage
+QEMU_INITRD		?= -initrd $(OUT_PATH)/initramfs.cpio.gz
 QEMU_ARGS		?= -nographic
 QEMU_ENV		?= $(OUT_PATH)/envstore.img
 
@@ -263,6 +317,7 @@ run-kernel:
 	$(QEMU_BIN) \
 		$(QEMU_ARGS) \
 		$(QEMU_KERNEL) \
+		$(QEMU_INITRD) \
                 $(QEMU_CONSOLE) \
 		$(QEMU_EXTRA_ARGS)
 
@@ -271,7 +326,7 @@ run-kernel:
 # Clean
 ################################################################################
 .PHONY: clean
-clean: build-clean fun_sim-clean googletest-clean
+clean: build-clean busybox-clean fun_sim-clean googletest-clean
 
 .PHONY: distclean
 distclean: clean
