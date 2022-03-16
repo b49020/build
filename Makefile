@@ -99,6 +99,7 @@ busybox-init: busybox-initramfs
 	echo "#!/bin/sh"  > $(INIT)
 	echo "mount -t proc none /proc" >> $(INIT)
 	echo "mount -t sysfs none /sys" >> $(INIT)
+	echo "mount -t devtmpfs none /dev" >> $(INIT)
 	echo "echo -e \"\\\nBoot took \$$(cut -d' ' -f1 /proc/uptime) seconds\\\n\"" >> $(INIT)
 	echo "exec /bin/sh +m" >> $(INIT)
 	chmod +x $(INIT)
