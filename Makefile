@@ -285,16 +285,17 @@ QEMU_ENV		?= $(OUT_PATH)/envstore.img
 
 ifeq ($(ARCH),arm64)
 QEMU_BIN		:= $(QEMU_PATH)/build/qemu-system-aarch64
-QEMU_CONSOLE		:= -append "console=ttyAMA0"
+QEMU_CONSOLE		:= -append "console=ttyAMA0 cma=2080MG"
 QEMU_KERNEL		:= -kernel $(LINUX_PATH)/arch/arm64/boot/Image.gz
 QEMU_ARGS		+= -smp 1 \
 			   -machine virt \
 			   -cpu cortex-a57 \
 			   -d unimp \
-			   -m 512 \
+			   -m 4096 \
 			   -no-acpi \
 			   -netdev user,id=vmnic,tftp=$(ROOT)/out,bootfile=uEnv.txt \
-			   -device virtio-net-device,netdev=vmnic
+			   -device virtio-net-device,netdev=vmnic \
+			   -device edu,dma_mask=0xffffffffffffffff
 QEMU_VIRTFS_HOST_DIR	?= $(CURDIR)
 
 ifeq ($(QEMU_VIRTFS_ENABLE),y)
