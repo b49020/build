@@ -194,7 +194,8 @@ $(LINUX_PATH)/.config: $(LINUX_DEFCONFIG_COMMON_FILES)
 	cd $(LINUX_PATH) && \
 		ARCH=$(LINUX_DEFCONFIG_COMMON_ARCH) \
 		CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" \
-		scripts/kconfig/merge_config.sh $(LINUX_DEFCONFIG_COMMON_FILES)
+		scripts/kconfig/merge_config.sh $(LINUX_DEFCONFIG_COMMON_FILES) \
+		$(BUILD_PATH)/kernel.conf
 
 linux-defconfig: $(LINUX_PATH)/.config
 
