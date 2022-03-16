@@ -160,7 +160,7 @@ googletest-clean:
 # fun_sim
 ################################################################################
 fun-sim: ntl
-	cd $(FUN_SIM_PATH) && scons -j8
+	cd $(FUN_SIM_PATH) && export NTL_PATH=$(OUT_PATH)/ntl/ && scons -j8
 
 fun-sim-clean:
 	cd $(FUN_SIM_PATH) && git clean -xdf
