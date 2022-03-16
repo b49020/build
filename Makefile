@@ -85,7 +85,7 @@ busybox-build: busybox-defconfig
 		CROSS_COMPILE="$(CCACHE)$(CROSS_COMPILE_PREFIX)" \
 		install
 
-busybox-initramfs: busybox-build
+busybox-initramfs: busybox-build udmabuf fun-sim-app
 	rm -rf $(INITRAMFS_OUT)
 	mkdir -p $(INITRAMFS_OUT)/busybox/bin
 	mkdir -p $(INITRAMFS_OUT)/busybox/sbin
@@ -95,7 +95,10 @@ busybox-initramfs: busybox-build
 	mkdir -p $(INITRAMFS_OUT)/busybox/usr
 	mkdir -p $(INITRAMFS_OUT)/busybox/usr/bin
 	mkdir -p $(INITRAMFS_OUT)/busybox/usr/sbin
+	mkdir -p $(INITRAMFS_OUT)/busybox/lib/modules
 	cp -av $(BUSYBOX_OUT)/_install/* $(INITRAMFS_OUT)/busybox
+	cp -av $(UDMABUF_PATH)/u-dma-buf.ko $(INITRAMFS_OUT)/busybox/lib/modules
+	cp -av $(FUN_SIM_APP_PATH)/fun_sim_app $(INITRAMFS_OUT)/busybox/usr/bin
 
 busybox-init: busybox-initramfs
 	echo "#!/bin/sh"  > $(INIT)
@@ -113,7 +116,7 @@ busybox-cpio: busybox-init
 
 busybox: busybox-cpio
 
-busybox-clean:
+busybox-clean: udmabuf-clean fun-sim-app-clean
 	rm -rf $(BUSYBOX_OUT) $(INITRAMFS_OUT)
 	cd $(BUILD_PATH) && git clean -xdf
 
