@@ -19,6 +19,7 @@ LINUX_PATH			?= $(ROOT)/linux
 MODULE_OUTPUT			?= $(OUT_PATH)/kernel_modules
 NTL_PATH			?= $(ROOT)/ntl
 QEMU_PATH			?= $(ROOT)/qemu
+UDMABUF_PATH			?= $(ROOT)/udmabuf
 
 DEBUG				?= n
 CCACHE_DIR			?= $(HOME)/.ccache
@@ -216,6 +217,20 @@ linux-clean: linux-defconfig-clean
 .PHONY: linux-cleaner
 linux-cleaner: linux-defconfig-clean
 	$(MAKE) -C $(LINUX_PATH) $(LINUX_CLEANER_COMMON_FLAGS) distclean
+
+################################################################################
+# Linux kernel module: udmabuf
+################################################################################
+
+.PHONY: udmabuf
+udmabuf: linux
+	cd $(UDMABUF_PATH) && \
+	$(MAKE) KERNEL_SRC=$(LINUX_PATH)
+
+.PHONY: udmabuf-clean
+udmabuf-clean:
+	cd $(UDMABUF_PATH) && \
+	$(MAKE) KERNEL_SRC=$(LINUX_PATH) clean
 
 #################################################################################
 # QEMU
