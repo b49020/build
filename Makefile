@@ -10,6 +10,7 @@ BINARIES_PATH			?= $(ROOT)/out/bin
 BUILD_PATH			?= $(ROOT)/build
 BUSYBOX_PATH			?= $(ROOT)/busybox
 FUN_SIM_PATH			?= $(ROOT)/fun_sim
+FUN_SIM_APP_PATH		?= $(ROOT)/fun_sim_app
 GOOGLETEST_PATH			?= $(ROOT)/googletest
 GOOGLETEST_OUT			?= $(GOOGLETEST_PATH)/build
 GOOGLETEST_LIB_DIR		?= $(GOOGLETEST_OUT)/lib
@@ -166,6 +167,18 @@ fun-sim: ntl
 
 fun-sim-clean:
 	cd $(FUN_SIM_PATH) && git clean -xdf
+
+################################################################################
+# fun_sim_app
+################################################################################
+.PHONY: fun-sim-app
+fun-sim-app:
+	cd $(FUN_SIM_APP_PATH) && \
+	$(CCACHE)$(CROSS_COMPILE_PREFIX)gcc -static -o fun_sim_app fun_sim_app.c
+
+.PHONY: fun-sim-app-clean
+fun-sim-app-clean:
+	cd $(FUN_SIM_APP_PATH) && rm -f fun_sim_app
 
 ################################################################################
 # Linux kernel
