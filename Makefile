@@ -30,11 +30,15 @@ ARCH				?=
 CFG_ENABLE_NTL_TESTS		?= n
 CFG_ENABLE_GTESTS		?= y
 
-# Use x86 gcc by default
 CROSS_COMPILE_PREFIX		?=
 ifeq ($(ARCH),arm64)
+	# Use x86 gcc by default
 	CROSS_COMPILE_PREFIX		:= aarch64-linux-gnu-
+
+	# Enable VIRT FS when using Arm64 by default
+	QEMU_VIRTFS_ENABLE ?= y
 endif
+
 
 # Binaries and general files
 LIBNTL_A			?= $(OUT_PATH)/ntl/lib/libntl.a
@@ -113,6 +117,10 @@ busybox-init: busybox-initramfs
 	echo "mount -t sysfs none /sys" >> $(INIT)
 	echo "mount -t devtmpfs none /dev" >> $(INIT)
 	echo "echo -e \"\\\nBoot took \$$(cut -d' ' -f1 /proc/uptime) seconds\\\n\"" >> $(INIT)
+ifeq ($(QEMU_VIRTFS_ENABLE),y)
+	echo "mkdir /host" >> $(INIT)
+	echo "mount -t 9p -o trans=virtio host /host" >> $(INIT)
+endif
 	echo "exec /bin/sh +m -l" >> $(INIT)
 	chmod +x $(INIT)
 
