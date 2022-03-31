@@ -73,6 +73,8 @@ include $(BUILD_PATH)/toolchain.mk
 BUSYBOX_OUT=$(OUT_PATH)/busybox
 INITRAMFS_OUT=$(OUT_PATH)/initramfs
 INIT=$(INITRAMFS_OUT)/busybox/init
+PROFILE=$(INITRAMFS_OUT)/busybox/.profile
+SETUP=$(INITRAMFS_OUT)/busybox/bin/setup.sh
 
 busybox-defconfig:
 	rm -rf $(BUSYBOX_OUT)
@@ -101,12 +103,17 @@ busybox-initramfs: busybox-build udmabuf fun-sim-app
 	cp -av $(FUN_SIM_APP_PATH)/fun_sim_app $(INITRAMFS_OUT)/busybox/usr/bin
 
 busybox-init: busybox-initramfs
+	echo "alias ll='ls -all'" > $(PROFILE)
+	echo "#!/bin/sh"  > $(SETUP)
+	echo "insmod /lib/modules/u-dma-buf.ko dma_mask_bit=64 udmabuf0=1048576 udmabuf1=1048576" >> $(SETUP)
+	echo "echo '1234 11e8' > /sys/bus/pci/drivers/uio_pci_generic/new_id" >> $(SETUP)
+	chmod +x $(SETUP)
 	echo "#!/bin/sh"  > $(INIT)
 	echo "mount -t proc none /proc" >> $(INIT)
 	echo "mount -t sysfs none /sys" >> $(INIT)
 	echo "mount -t devtmpfs none /dev" >> $(INIT)
 	echo "echo -e \"\\\nBoot took \$$(cut -d' ' -f1 /proc/uptime) seconds\\\n\"" >> $(INIT)
-	echo "exec /bin/sh +m" >> $(INIT)
+	echo "exec /bin/sh +m -l" >> $(INIT)
 	chmod +x $(INIT)
 
 busybox-cpio: busybox-init
