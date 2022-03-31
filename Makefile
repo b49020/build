@@ -153,8 +153,8 @@ $(GOOGLETEST_LIB): googletest/CMakeLists.txt
 	@echo "\nBuilding Googletest\n"
 	$(VB)mkdir -p $(GOOGLETEST_OUT);
 	$(VB)cd $(GOOGLETEST_OUT); \
-		cmake -DCMAKE_C_COMPILER="gcc" \
-		-DCMAKE_CXX_COMPILER="g++" .. && \
+		cmake -DCMAKE_C_COMPILER="$(CROSS_COMPILE_PREFIX)gcc" \
+		-DCMAKE_CXX_COMPILER="$(CROSS_COMPILE_PREFIX)g++" .. && \
 		$(MAKE)
 
 googletest: $(GOOGLETEST_LIB)
