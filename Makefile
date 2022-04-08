@@ -118,6 +118,7 @@ busybox-init: busybox-initramfs
 	echo "mount -t devtmpfs none /dev" >> $(INIT)
 	echo "echo -e \"\\\nBoot took \$$(cut -d' ' -f1 /proc/uptime) seconds\\\n\"" >> $(INIT)
 ifeq ($(QEMU_VIRTFS_ENABLE),y)
+	echo "alias fsa='echo Running fun_sim_app locally && ./host/fun_sim_app/fun_sim_app'" >> $(PROFILE)
 	echo "mkdir /host" >> $(INIT)
 	echo "mount -t 9p -o trans=virtio host /host" >> $(INIT)
 endif
